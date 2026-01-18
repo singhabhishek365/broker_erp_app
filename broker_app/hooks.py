@@ -247,3 +247,28 @@ app_license = "mit"
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+fixtures = [
+    {
+        "doctype": "Custom Field",
+        "filters": [
+            ["dt", "in", ["Supplier Quotation"]]
+        ]
+    },
+    "Property Setter"
+]
+
+doc_events = {
+    "Purchase Order": {
+        "on_submit": "broker_app.customizations.supplier_quotation.update_supplier_quotation_status"
+    },
+    "Supplier Quotation": {
+         "validate": "broker_app.customizations.supplier_quotation.validate_freight_rules",
+         "on_update_after_submit": "broker_app.customizations.purchase_order.handle_workflow_po_creation",  
+        
+    }
+}
+
+
+doctype_js = {
+    # "Supplier Quotation": "public/js/supplier_quotation.js"
+}

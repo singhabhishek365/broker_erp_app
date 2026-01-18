@@ -31,3 +31,7 @@ Pre-commit is configured to use the following tools for checking and formatting 
 ### License
 
 mit
+http://127.0.0.1:8006/api/method/broker_app.mobile_api.broker.create_broker
+http://127.0.0.1:8006/api/method/broker_app.mobile_api.auth.login
+
+{"broker_name": "Abhishek Singh" , "item_name": "Test", "item_rate": "10", "taxes":"5", "vehicle_number": "OB202022"}
