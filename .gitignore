@@ -5,3 +5,15 @@
 tags
 node_modules
 __pycache__
+README.md
+._README.md
+broker_app/._fixtures
+broker_app/._hooks.py
+broker_app/._patches.txt
+broker_app/customizations/._purchase_order.py
+broker_app/fixtures/._custom_field.json
+broker_app/customizations/._supplier_quotation.py
+broker_app/fixtures/._property_setter.json
+broker_app/mobile_api/._broker.py
+broker_app/public/js/._supplier_quotation.js
+._.gitignore
