@@ -126,7 +126,7 @@ def get_supplier_quotations(filters=None, fields=None, start=0, page_length=20):
             fields=parent_fields,
             start=start,
             page_length=page_length,
-            order_by="transaction_date desc"
+            order_by="creation desc"
         )
 
         if not quotations:
@@ -317,7 +317,7 @@ def get_purchase_orders(filters=None, fields=None, start=0, page_length=20):
             fields=parent_fields,
             start=start,
             page_length=page_length,
-            order_by="transaction_date desc"
+            order_by="creation desc"
         )
 
         if not purchase_orders:
