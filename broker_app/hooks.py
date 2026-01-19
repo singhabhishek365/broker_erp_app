@@ -254,6 +254,12 @@ fixtures = [
             ["dt", "in", ["Supplier Quotation"]]
         ]
     },
+    {
+        "dt": "Workflow",
+        "filters": [
+            ["document_type", "=", "Supplier Quotation"]
+        ]
+    },
     "Property Setter"
 ]
 
