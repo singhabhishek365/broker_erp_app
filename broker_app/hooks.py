@@ -254,6 +254,12 @@ fixtures = [
             ["dt", "in", ["Supplier Quotation"]]
         ]
     },
+     {
+        "doctype": "Custom Field",
+        "filters": [
+            ["dt", "in", ["Supplier"]]
+        ]
+    },
     {
         "dt": "Workflow",
         "filters": [
@@ -269,12 +275,12 @@ doc_events = {
     },
     "Supplier Quotation": {
          "validate": "broker_app.customizations.supplier_quotation.validate_freight_rules",
-         "on_update_after_submit": "broker_app.customizations.purchase_order.handle_workflow_po_creation",  
+         "before_submit": "broker_app.customizations.purchase_order.handle_workflow_po_creation",  
         
     }
 }
 
 
 doctype_js = {
-    # "Supplier Quotation": "public/js/supplier_quotation.js"
+     "Supplier Quotation": "public/js/supplier_quotation.js"
 }

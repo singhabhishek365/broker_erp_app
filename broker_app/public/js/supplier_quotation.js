@@ -1,28 +1,35 @@
-// frappe.ui.form.on("Supplier Quotation", {
-// 	custom_freight(frm) {
-// 		if (!frm.doc.items) return;
+frappe.ui.form.on("Supplier Quotation", {
+	onload(frm) {
+		frm.set_query("custom_party_name_", () => ({
+			filters: { custom_is_party: 1 },
+		}));
+	},
 
-// 		// ---- EXCLUSIVE → ADD FREIGHT ----
-// 		if (frm.doc.custom_freight === "Exclusive") {
-// 			let exists = frm.doc.items.some((i) => i.item_code === "Freight");
+	custom_freight_per_unit(frm) {
+		calculate_charges(frm);
+	},
 
-// 			if (!exists) {
-// 				let row = frm.add_child("items");
-// 				row.item_code = "Freight";
-// 				row.item_name = "Freight Charges";
-// 				row.uom = "Service";
-// 				row.conversion_factor = 1;
-// 				row.qty = 1;
-// 				row.rate = frm.doc.rate || 0;
+	custom_lobour_per_unit_(frm) {
+		calculate_charges(frm);
+	},
+});
 
-// 				frm.refresh_field("items");
-// 			}
-// 		}
+frappe.ui.form.on("Supplier Quotation Item", {
+	qty(frm) {
+		calculate_charges(frm);
+	},
+	items_remove(frm) {
+		calculate_charges(frm);
+	},
+});
 
-// 		// ---- INCLUSIVE → REMOVE FREIGHT ----
-// 		if (frm.doc.custom_freight === "Inclusive") {
-// 			frm.doc.items = frm.doc.items.filter((i) => i.item_code !== "Freight");
-// 			frm.refresh_field("items");
-// 		}
-// 	},
-// });
+function calculate_charges(frm) {
+	frm.trigger("calculate_totals");
+
+	let weight = frm.doc.total_qty || 0;
+	let freight_unit = frm.doc.custom_freight_per_unit || 0;
+	let labour_unit = frm.doc.custom_lobour_per_unit_ || 0;
+
+	frm.set_value("custom_total_freight_cost", freight_unit * weight);
+	frm.set_value("custom_labour_total_cost_", labour_unit * weight);
+}

@@ -14,5 +14,6 @@ def update_supplier_quotation_status(doc, method):
 
 def validate_freight_rules(doc, method=None):
     if doc.custom_freight == "Exclusive":
-        if not doc.custom_loading_charges or doc.custom_loading_charges <= 0:
-            frappe.throw("Loading Charges must be greater than 0 when Freight = Exclusive")
+        # if not doc.custom_loading_charges or doc.custom_loading_charges <= 0:
+        #     frappe.throw("Loading Charges must be greater than 0 when Freight = Exclusive")
+        pass

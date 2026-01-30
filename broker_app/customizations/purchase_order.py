@@ -4,7 +4,10 @@ from frappe.utils import nowdate
 def handle_workflow_po_creation(doc, method=None):
     frappe.logger("broker_po").info("Workflow Triggered")
     frappe.logger("broker_po").info(f"Workflow State: {doc.workflow_state}")
-  
+    frappe.log_error(
+    title="Test PO Debug",
+    message=f"Transport Item: {doc}"
+)
 
     # Ensure workflow reached Approved state
     if doc.workflow_state != "Converted to PO":
@@ -16,7 +19,7 @@ def handle_workflow_po_creation(doc, method=None):
         create_material_po(doc)
     else:
         create_material_po(doc)
-        # create_transport_po(doc)
+        create_transport_po(doc)
 
     # mark flag
     doc.custom_po_created = 1
@@ -77,71 +80,120 @@ def create_material_po(quotation):
 
 
 
-# def create_transport_po(quotation):
-#     try:
-#         frappe.logger("broker_po").info(f"Transport PO Trigger for {quotation.name}")
+def create_transport_po(quotation):
+    try:
+        frappe.logger("broker_po").info(f"Transport PO Trigger for {quotation.name}")
 
-#         # -------------------------
-#         # VALIDATIONS
+        # -------------------------
+        # VALIDATIONS
        
 
-#         # Transport Item from Quotation
-#         transport_item = None
-#         for item in quotation.items:
-#             if item.item_group == "Services":      # Your rule
-#                 transport_item = item
-#                 break
+        # Transport Item from Quotation
+        transport_item = None
+        # for item in quotation.items:
+        #     if item.item_group == "Services":      # Your rule
+        #         transport_item = item
+        #         break
+        
+        transport_item =  get_transport_service_item()
+        frappe.log_error(
+            title="Broker PO Debug",
+            message=f"Transport Item: {transport_item}"
+        )
+        if not transport_item:
+            frappe.throw("No Freight Service Item found in Supplier Quotation")
 
-#         if not transport_item:
-#             frappe.throw("No Freight Service Item found in Supplier Quotation")
+        if not transport_item.rate:
+            frappe.throw("Freight Item Rate is missing")
 
-#         if not transport_item.rate:
-#             frappe.throw("Freight Item Rate is missing")
-
-#         loading_charges = float(transport_item.rate or 0)
-
-
-
-#         # -------------------------
-#         # CREATE TRANSPORT PO
-#         # -------------------------
-#         po = frappe.new_doc("Purchase Order")
-#         po.company =quotation.company
-#         po.supplier = quotation.supplier
-#         po.supplier_quotation = quotation.name
-#         po.transaction_date = nowdate()
-#         po.schedule_date = nowdate()
-
-#         # -------------------------
-#         # SERVICE ITEM ENTRY
-#         # -------------------------
-#         po.append("items", {
-#             "item_code": transport_item.item_code,
-#             "item_name": transport_item.item_name,
-#             "description": f"Transport Charges for {quotation.name}",
-#             "qty": 1,
-#             "rate": loading_charges,
-#             "uom": transport_item.uom,
-#             "schedule_date": nowdate(),
-
-#             # 🔗 ensure linking appears in "Connections"
-#             "supplier_quotation": quotation.name
-#         })
-
-#         po.insert(ignore_permissions=True)
-#         po.submit()
-
-#         frappe.logger("broker_po").info(f"Transport PO Created: {po.name}")
-#         frappe.msgprint(f"🚚 Transport Purchase Order Created: <b>{po.name}</b>")
-
-#         return po.name
-
-#     except Exception as e:
-#         frappe.logger("broker_po").error(f"Transport PO Failed: {str(e)}")
-#         frappe.msgprint(f"<b>Transport PO Failed!</b><br>{str(e)}", indicator="red")
-#         raise
+       # loading_charges = float(transport_item.rate or 0)
 
 
+
+        # -------------------------
+        # CREATE TRANSPORT PO
+        # -------------------------
+        po = frappe.new_doc("Purchase Order")
+        po.company =quotation.company
+        po.supplier = quotation.supplier
+        po.supplier_quotation = quotation.name
+        po.transaction_date = nowdate()
+        po.schedule_date = nowdate()
+
+        # -------------------------
+        # SERVICE ITEM ENTRY
+        # -------------------------
+        po.append("items", {
+            "item_code": transport_item.item_name,
+            "item_name": transport_item.item_name,
+            "description": f"Transport Charges for {quotation.name}",
+            "qty": 1,
+            "rate": transport_item.rate,
+            "uom": transport_item.stock_uom,
+            "schedule_date": nowdate(),
+
+            # 🔗 ensure linking appears in "Connections"
+            "supplier_quotation": quotation.name
+        })
+
+        po.insert(ignore_permissions=True)
+        po.submit()
+
+        frappe.logger("broker_po").info(f"Transport PO Created: {po.name}")
+        frappe.msgprint(f"🚚 Transport Purchase Order Created: <b>{po.name}</b>")
+
+        return po.name
+
+    except Exception as e:
+        frappe.logger("broker_po").error(f"Transport PO Failed: {str(e)}")
+        frappe.msgprint(f"<b>Transport PO Failed!</b><br>{str(e)}", indicator="red")
+        raise
+
+
+
+# def get_transport_service_item():
+#     item = frappe.db.get_value(
+#         "Item",
+#         {
+#             "item_group": "Services",
+#             "is_purchase_item": 1,
+#             "disabled": 0
+#         },
+#         ["name", "item_name", "stock_uom" , "rate"],
+#         as_dict=True
+#     )
+
+#     if not item:
+#         frappe.throw("No active Service Item found in Item Master")
+
+#     return item
+
+def get_transport_service_item(price_list="Standard Buying"):
+    item = frappe.db.get_value(
+        "Item",
+        {
+            "item_group": "Services",
+            "is_purchase_item": 1,
+            "disabled": 0
+        },
+        ["name", "item_name", "stock_uom"],
+        as_dict=True
+    )
+
+    if not item:
+        frappe.throw("No active Service Item found in Item Master")
+
+    rate = frappe.db.get_value(
+        "Item Price",
+        {
+            "item_code": item.name,
+            "price_list": price_list
+        },
+        "price_list_rate"
+    )
+
+    item.rate = rate or 0
+    return item
 
 
 
