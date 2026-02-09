@@ -284,3 +284,12 @@ doc_events = {
 doctype_js = {
      "Supplier Quotation": "public/js/supplier_quotation.js"
 }
+
+app_include_css = [
+    "/assets/nexity_customization/css/open_tasks_block.css"
+    
+]
+
+app_include_js = [
+    "/assets/nexity_customization/js/buying_page.js"
+]

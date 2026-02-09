@@ -12,8 +12,20 @@ def update_supplier_quotation_status(doc, method):
 
 
 
+
 def validate_freight_rules(doc, method=None):
-    if doc.custom_freight == "Exclusive":
-        # if not doc.custom_loading_charges or doc.custom_loading_charges <= 0:
-        #     frappe.throw("Loading Charges must be greater than 0 when Freight = Exclusive")
-        pass
+    # Apply only when Freight is Exclusive
+    if doc.custom_freight != "Exclusive":
+        return
+
+    # Apply only for Admin / System Manager
+    if not (frappe.session.user == "Administrator" or frappe.session.user == "System Manager"):
+        return
+
+    # Mandatory check
+    if not doc.custom_transporter_supplier_:
+        frappe.throw(
+            "🚚 <b>Transporter Supplier is mandatory</b><br>"
+            "Please select a Transporter Supplier when Freight is <b>Exclusive</b>.",
+            title="Missing Transporter Supplier"
+        )

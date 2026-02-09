@@ -3,6 +3,19 @@ frappe.ui.form.on("Supplier Quotation", {
 		frm.set_query("custom_party_name_", () => ({
 			filters: { custom_is_party: 1 },
 		}));
+
+		frm.set_query("custom_transporter_supplier_", () => ({
+			filters: {
+				is_transporter: 1,
+			},
+		}));
+
+		frm.set_query("supplier", () => ({
+			filters: {
+				is_transporter: 0,
+				custom_is_party: 0,
+			},
+		}));
 	},
 
 	custom_freight_per_unit(frm) {

@@ -59,7 +59,7 @@ def create_material_po(quotation):
         po.insert(ignore_permissions=True)
 
         frappe.logger().info(f"PO Inserted Successfully: {po.name}")
-
+        quotation.custom_material_purchase_order_reference_ = po.name
         po.submit()
 
         frappe.msgprint(f"Material Purchase Order Created: <b>{po.name}</b>")
@@ -115,7 +115,7 @@ def create_transport_po(quotation):
         # -------------------------
         po = frappe.new_doc("Purchase Order")
         po.company =quotation.company
-        po.supplier = quotation.supplier
+        po.supplier = quotation.custom_transporter_supplier_
         po.supplier_quotation = quotation.name
         po.transaction_date = nowdate()
         po.schedule_date = nowdate()
@@ -133,10 +133,11 @@ def create_transport_po(quotation):
             "schedule_date": nowdate(),
 
             # 🔗 ensure linking appears in "Connections"
-            "supplier_quotation": quotation.name
+            #"supplier_quotation": quotation.name
         })
 
         po.insert(ignore_permissions=True)
+        quotation.custom_transporter_purchase_order_reference = po.name
         po.submit()
 
         frappe.logger("broker_po").info(f"Transport PO Created: {po.name}")
