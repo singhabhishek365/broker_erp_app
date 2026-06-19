@@ -4,7 +4,7 @@ frappe.ui.form.on("Supplier Quotation", {
 			filters: { custom_is_party: 1 },
 		}));
 
-		frm.set_query("custom_transporter_supplier_", () => ({
+		frm.set_query("custom_transporter_supplier", () => ({
 			filters: {
 				is_transporter: 1,
 			},
@@ -18,31 +18,35 @@ frappe.ui.form.on("Supplier Quotation", {
 		}));
 	},
 
-	custom_freight_per_unit(frm) {
-		calculate_charges(frm);
+	onload_post_render(frm){
+		setTimeout(() => {
+			if (frm.doc.custom_po_created) {
+				frm.remove_custom_button(__("Purchase Order"), __("Create"));
+				frm.remove_custom_button(__("Quotation"), __("Create"));
+			}
+		}, 300);
 	},
 
-	custom_lobour_per_unit_(frm) {
-		calculate_charges(frm);
+	refresh(frm) {
+		setTimeout(() => {
+			if (frm.doc.custom_po_created) {
+				frm.remove_custom_button(__("Purchase Order"), __("Create"));
+				frm.remove_custom_button(__("Quotation"), __("Create"));
+			}
+		}, 300);
+
+		// Show linked PO references as indicators for quick navigation
+		if (frm.doc.custom_material_purchase_order_reference_) {
+			frm.add_custom_button(__("Material PO"), () => {
+				frappe.set_route("Form", "Purchase Order", frm.doc.custom_material_purchase_order_reference_);
+			}, __("View"));
+		}
+
+		if (frm.doc.custom_transporter_purchase_order_reference_) {
+			frm.add_custom_button(__("Transport PO"), () => {
+				frappe.set_route("Form", "Purchase Order", frm.doc.custom_transporter_purchase_order_reference_);
+			}, __("View"));
+		}
 	},
 });
 
-frappe.ui.form.on("Supplier Quotation Item", {
-	qty(frm) {
-		calculate_charges(frm);
-	},
-	items_remove(frm) {
-		calculate_charges(frm);
-	},
-});
-
-function calculate_charges(frm) {
-	frm.trigger("calculate_totals");
-
-	let weight = frm.doc.total_qty || 0;
-	let freight_unit = frm.doc.custom_freight_per_unit || 0;
-	let labour_unit = frm.doc.custom_lobour_per_unit_ || 0;
-
-	frm.set_value("custom_total_freight_cost", freight_unit * weight);
-	frm.set_value("custom_labour_total_cost_", labour_unit * weight);
-}

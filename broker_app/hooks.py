@@ -251,13 +251,7 @@ fixtures = [
     {
         "doctype": "Custom Field",
         "filters": [
-            ["dt", "in", ["Supplier Quotation"]]
-        ]
-    },
-     {
-        "doctype": "Custom Field",
-        "filters": [
-            ["dt", "in", ["Supplier"]]
+            ["module", "=", "Broker"]
         ]
     },
     {
@@ -265,8 +259,7 @@ fixtures = [
         "filters": [
             ["document_type", "=", "Supplier Quotation"]
         ]
-    },
-    "Property Setter"
+    }
 ]
 
 doc_events = {
@@ -274,15 +267,15 @@ doc_events = {
         "on_submit": "broker_app.customizations.supplier_quotation.update_supplier_quotation_status"
     },
     "Supplier Quotation": {
-         "validate": "broker_app.customizations.supplier_quotation.validate_freight_rules",
-         "before_submit": "broker_app.customizations.purchase_order.handle_workflow_po_creation",  
+        "validate": "broker_app.customizations.supplier_quotation.validate_freight_rules",
+        "on_submit": "broker_app.customizations.purchase_order.handle_workflow_po_creation",  
         
     }
 }
 
 
 doctype_js = {
-     "Supplier Quotation": "public/js/supplier_quotation.js"
+    "Supplier Quotation": "public/js/supplier_quotation.js"
 }
 
 app_include_css = [
