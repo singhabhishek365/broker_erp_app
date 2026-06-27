@@ -224,16 +224,20 @@ def create(**data):
         sq.custom_remarks = data.get("custom_remarks")
         sq.custom_distance_in_km_ = data.get("custom_distance_in_km_")
         sq.custom_location = data.get("custom_location")
+        sq.cost_center = data.get("cost_center")
+        sq.branch = data.get("branch")
 
         # -------------------------
-        # ITEMS
+        # ITEMS"
         # -------------------------
         for item in data["items"]:
             sq.append("items", {
                 "item_code": item["item_code"],
                 "qty": item.get("qty", 1),
                 "rate": item.get("rate", 0),
-                "uom": item.get("uom", "Nos")
+                "uom": item.get("uom", "Nos"),
+                "cost_center": item.get("cost_center"),
+                "branch": item.get("branch")
             })
 
         sq.insert(ignore_permissions=True)
