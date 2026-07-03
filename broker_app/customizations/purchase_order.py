@@ -51,6 +51,26 @@ def create_material_po(quotation):
         # Overrides / fields not carried by mapper
         po.transaction_date = nowdate()
         po.schedule_date = nowdate()
+        po.validity_date = quotation.valid_till or nowdate()
+        if quotation.custom_freight == "Exclusive":
+            incoterm = frappe.db.get_value(
+                    "Incoterm",
+                    {"custom_shortage_debit_to_transporter": 1},
+                    "name",
+                    order_by="creation asc"
+                )
+        else:
+            incoterm = frappe.db.get_value(
+                "Incoterm",
+                {"custom_shortage_debit_to_transporter": 0},
+                "name",
+                order_by="creation asc"
+            )
+
+        if not incoterm:
+            frappe.throw("No suitable Incoterm found")
+
+        po.incoterm = incoterm
         po.branch = quotation.branch
         po.taxes_and_charges = quotation.taxes_and_charges
         po.cost_center = quotation.cost_center
@@ -94,6 +114,26 @@ def create_transport_po(quotation):
         po.supplier = quotation.custom_transporter_supplier
         po.transaction_date = nowdate()
         po.schedule_date = nowdate()
+        po.validity_date = quotation.valid_till or nowdate()
+        if quotation.custom_freight == "Exclusive":
+            incoterm = frappe.db.get_value(
+                    "Incoterm",
+                    {"custom_shortage_debit_to_transporter": 1},
+                    "name",
+                    order_by="creation asc"
+                )
+        else:
+            incoterm = frappe.db.get_value(
+                "Incoterm",
+                {"custom_shortage_debit_to_transporter": 0},
+                "name",
+                order_by="creation asc"
+            )
+
+        if not incoterm:
+            frappe.throw("No suitable Incoterm found")
+
+        po.incoterm = incoterm
         po.branch = quotation.branch
         po.cost_center = quotation.cost_center
         po.ref_sq = quotation.name
@@ -118,7 +158,7 @@ def create_transport_po(quotation):
         quotation.db_set("custom_transporter_purchase_order_reference_", po.name, update_modified=False)
 
         frappe.logger("broker_po").info(f"Transport PO Created (Draft): {po.name}")
-        frappe.msgprint(f"🚚 Transport Purchase Order Created (Draft): <b>{po.name}</b>")
+        frappe.msgprint(f" Transport Purchase Order Created (Draft): <b>{po.name}</b>")
 
         return po.name
 
