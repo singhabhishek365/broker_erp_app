@@ -101,7 +101,7 @@ def create_transport_po(quotation):
     try:
         frappe.logger("broker_po").info(f"Transport PO Trigger for {quotation.name}")
 
-        transport_item = get_transport_service_item()
+        transport_item = get_transport_service_item(quotation)
 
         if not transport_item:
             frappe.throw("No Freight Service Item found in Item Master")
@@ -112,6 +112,7 @@ def create_transport_po(quotation):
         po = frappe.new_doc("Purchase Order")
         po.company = quotation.company
         po.supplier = quotation.custom_transporter_supplier
+        po.custom_is_transporter_po = 1
         po.transaction_date = nowdate()
         po.schedule_date = nowdate()
         po.validity_date = quotation.valid_till or nowdate()
@@ -145,8 +146,8 @@ def create_transport_po(quotation):
             "item_code": transport_item.name,
             "item_name": transport_item.item_name,
             "description": f"Transport Charges for {quotation.name}",
-            "qty": 1,
-            "rate": transport_item.rate,
+            "qty": quotation.items[0].qty,
+            "rate": quotation.custom_rate_per_unit,
             "uom": transport_item.stock_uom,
             "schedule_date": nowdate(),
             "branch": quotation.branch,
@@ -166,7 +167,7 @@ def create_transport_po(quotation):
         frappe.logger("broker_po").error(f"Transport PO Failed: {str(e)}")
         frappe.throw(f"Failed to create Transport Purchase Order: {str(e)}")
 
-def get_transport_service_item(price_list=None):
+def get_transport_service_item(quotation,price_list=None):
     price_list = price_list or frappe.db.get_single_value("Buying Settings", "buying_price_list") or "Standard Buying"
 
     item = frappe.db.get_value(
@@ -184,14 +185,7 @@ def get_transport_service_item(price_list=None):
     if not item:
         frappe.throw("No active Service Item found in Item Master")
 
-    rate = frappe.db.get_value(
-        "Item Price",
-        {
-            "item_code": item.name,
-            "price_list": price_list
-        },
-        "price_list_rate"
-    )
+    rate = quotation.custom_rate_per_unit
 
     item.rate = rate or 0
     return item
