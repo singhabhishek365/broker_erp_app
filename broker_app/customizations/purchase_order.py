@@ -71,7 +71,7 @@ def create_material_po(quotation):
         #     frappe.throw("No suitable Incoterm found")
 
         # po.incoterm = incoterm
-        po.incoterm = quoatation.incoterm
+        po.incoterm = quotation.incoterm
         po.branch = quotation.branch
         po.taxes_and_charges = quotation.taxes_and_charges
         po.cost_center = quotation.cost_center
@@ -136,7 +136,7 @@ def create_transport_po(quotation):
         #     frappe.throw("No suitable Incoterm found")
 
         # po.incoterm = incoterm
-        po.incoterm = quoatation.incoterm
+        po.incoterm = quotation.incoterm
         po.branch = quotation.branch
         po.cost_center = quotation.cost_center
         po.ref_sq = quotation.name
