@@ -23,9 +23,9 @@ def validate_freight_rules(doc, method=None):
         return
 
     # Mandatory check
-    if not doc.custom_transporter_supplier:
+    if not doc.custom_transporters:
         frappe.throw(
-            "🚚 <b>Transporter Supplier is mandatory</b><br>"
-            "Please select a Transporter Supplier when Freight is <b>Exclusive</b>.",
-            title="Missing Transporter Supplier"
+            "🚚 <b>At least one Transporter is mandatory</b><br>"
+            "Please add a Transporter row when Freight is <b>Exclusive</b>.",
+            title="Missing Transporter"
         )

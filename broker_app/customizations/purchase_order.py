@@ -14,7 +14,7 @@ def handle_workflow_po_creation(doc, method=None):
         create_material_po(doc)
     else:
         create_material_po(doc)
-        create_transport_po(doc)
+        create_transport_pos(doc)
 
     doc.custom_po_created = 1
     doc.db_update()
@@ -52,6 +52,7 @@ def create_material_po(quotation):
         po.transaction_date = nowdate()
         po.schedule_date = nowdate()
         po.validity_date = quotation.valid_till or nowdate()
+        po.custom_purchase_type = 'Material'
         # if quotation.custom_freight == "Exclusive":
         #     incoterm = frappe.db.get_value(
         #             "Incoterm",
@@ -98,22 +99,40 @@ def create_material_po(quotation):
         frappe.throw(f"Failed to create Purchase Order: {str(e)}")
 
 
-def create_transport_po(quotation):
-    try:
-        frappe.logger("broker_po").info(f"Transport PO Trigger for {quotation.name}")
+def create_transport_pos(quotation):
+    if not quotation.custom_transporters:
+        frappe.throw("At least one Transporter row is required when Freight is Exclusive")
 
-        transport_item = get_transport_service_item(quotation)
+    po_names = []
+    for row in quotation.custom_transporters:
+        po_names.append(create_transport_po_for_row(quotation, row))
+
+    if po_names:
+        # Kept for backward compatibility with existing consumers (e.g. Gate
+        # Entry's PO -> Supplier Quotation lookup) that read the single field.
+        quotation.db_set("custom_transporter_purchase_order_reference_", po_names[0], update_modified=False)
+        quotation.db_set("custom_transporter_supplier", quotation.custom_transporters[0].transporter, update_modified=False)
+
+    return po_names
+
+
+def create_transport_po_for_row(quotation, row):
+    try:
+        frappe.logger("broker_po").info(f"Transport PO Trigger for {quotation.name} (Transporter row #{row.idx})")
+
+        transport_item = get_transport_service_item(row)
 
         if not transport_item:
             frappe.throw("No Freight Service Item found in Item Master")
 
-        if not transport_item.rate:
-            frappe.throw("Freight Item Rate is missing")
-
         po = frappe.new_doc("Purchase Order")
         po.company = quotation.company
-        po.supplier = quotation.custom_transporter_supplier
+        po.supplier = row.transporter
+        po.custom_purchase_type = 'Service'
+        po.custom_service_subtype = 'Logistics/Transport'
+        po.custom_transporter_for = 'Supplier'
         po.custom_is_transporter_po = 1
+        po.custom_material_po = quotation.custom_material_purchase_order_reference_
         po.transaction_date = nowdate()
         po.schedule_date = nowdate()
         po.validity_date = quotation.valid_till or nowdate()
@@ -147,9 +166,9 @@ def create_transport_po(quotation):
         po.append("items", {
             "item_code": transport_item.name,
             "item_name": transport_item.item_name,
-            "description": f"Transport Charges for {quotation.name}",
-            "qty": quotation.items[0].qty,
-            "rate": quotation.custom_rate_per_unit,
+            "description": f"Transport Charges for {quotation.name} (Row #{row.idx})",
+            "qty": row.qty or quotation.items[0].qty,
+            "rate": row.rate_per_unit,
             "uom": transport_item.stock_uom,
             "schedule_date": nowdate(),
             "branch": quotation.branch,
@@ -158,18 +177,18 @@ def create_transport_po(quotation):
         po.insert(ignore_permissions=True)
         # stays as draft — no submit()
 
-        quotation.db_set("custom_transporter_purchase_order_reference_", po.name, update_modified=False)
+        frappe.db.set_value("Supplier Quotation Transporter", row.name, "transporter_po_reference", po.name)
 
         frappe.logger("broker_po").info(f"Transport PO Created (Draft): {po.name}")
-        frappe.msgprint(f" Transport Purchase Order Created (Draft): <b>{po.name}</b>")
+        frappe.msgprint(f" Transport Purchase Order Created (Draft) for {row.transporter}: <b>{po.name}</b>")
 
         return po.name
 
     except Exception as e:
         frappe.logger("broker_po").error(f"Transport PO Failed: {str(e)}")
-        frappe.throw(f"Failed to create Transport Purchase Order: {str(e)}")
+        frappe.throw(f"Failed to create Transport Purchase Order for {row.transporter}: {str(e)}")
 
-def get_transport_service_item(quotation,price_list=None):
+def get_transport_service_item(row, price_list=None):
     price_list = price_list or frappe.db.get_single_value("Buying Settings", "buying_price_list") or "Standard Buying"
 
     item = frappe.db.get_value(
@@ -187,9 +206,10 @@ def get_transport_service_item(quotation,price_list=None):
     if not item:
         frappe.throw("No active Service Item found in Item Master")
 
-    rate = quotation.custom_rate_per_unit
+    if not row.rate_per_unit:
+        frappe.throw(f"Rate Per Unit is missing for Transporter row #{row.idx}")
 
-    item.rate = rate or 0
+    item.rate = row.rate_per_unit
     return item
 
 

@@ -4,7 +4,7 @@ frappe.ui.form.on("Supplier Quotation", {
 			filters: { custom_is_party: 1 },
 		}));
 
-		frm.set_query("custom_transporter_supplier", () => ({
+		frm.set_query("transporter", "custom_transporters", () => ({
 			filters: {
 				is_transporter: 1,
 			},
@@ -59,11 +59,12 @@ frappe.ui.form.on("Supplier Quotation", {
 			}, __("View"));
 		}
 
-		if (frm.doc.custom_transporter_purchase_order_reference_) {
-			frm.add_custom_button(__("Transport PO"), () => {
-				frappe.set_route("Form", "Purchase Order", frm.doc.custom_transporter_purchase_order_reference_);
-			}, __("View"));
-		}
+		(frm.doc.custom_transporters || []).forEach((row) => {
+			if (!row.transporter_po_reference) return;
+			frm.add_custom_button(row.transporter_po_reference, () => {
+				frappe.set_route("Form", "Purchase Order", row.transporter_po_reference);
+			}, __("Transport PO"));
+		});
 
 		render_po_links(frm);
 	},
@@ -71,9 +72,11 @@ frappe.ui.form.on("Supplier Quotation", {
 
 function render_po_links(frm) {
     const material_po = frm.doc.custom_material_purchase_order_reference_;
-    const transporter_po = frm.doc.custom_transporter_purchase_order_reference_;
+    const transporter_rows = frm.doc.custom_transporters || [];
+    // Legacy fallback for records created before the Transporters table existed.
+    const legacy_transporter_po = transporter_rows.length ? null : frm.doc.custom_transporter_purchase_order_reference_;
 
-    if (!material_po && !transporter_po) {
+    if (!material_po && !transporter_rows.length && !legacy_transporter_po) {
         frm.set_df_property("custom_po_links_html", "options", "");
         return;
     }
@@ -180,7 +183,16 @@ function render_po_links(frm) {
         </style>
         <div class="po-link-wrapper">
             ${make_card("Material Purchase Order", material_po, "fa fa-cube", "#2e7d32")}
-            ${make_card("Transporter Purchase Order", transporter_po, "fa fa-truck", "#1565c0")}
+            ${
+                transporter_rows.length
+                    ? transporter_rows.map((row) => make_card(
+                        `Transporter PO (${row.transporter || "Row " + row.idx})`,
+                        row.transporter_po_reference,
+                        "fa fa-truck",
+                        "#1565c0"
+                    )).join("")
+                    : make_card("Transporter Purchase Order", legacy_transporter_po, "fa fa-truck", "#1565c0")
+            }
         </div>
     `;
 
