@@ -14,7 +14,7 @@ def handle_workflow_po_creation(doc, method=None):
         create_material_po(doc)
     else:
         create_material_po(doc)
-        create_transport_pos(doc)
+        # create_transport_pos(doc)
 
     doc.custom_po_created = 1
     doc.db_update()

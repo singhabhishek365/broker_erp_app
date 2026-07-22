@@ -71,12 +71,43 @@ frappe.ui.form.on("Supplier Quotation", {
 });
 
 function render_po_links(frm) {
-    const material_po = frm.doc.custom_material_purchase_order_reference_;
-    const transporter_rows = frm.doc.custom_transporters || [];
-    // Legacy fallback for records created before the Transporters table existed.
-    const legacy_transporter_po = transporter_rows.length ? null : frm.doc.custom_transporter_purchase_order_reference_;
+    // Fetch the Material PO live from Purchase Order instead of trusting the
+    // cached custom_material_purchase_order_reference_ field on this SQ.
+    frappe.db.get_list("Purchase Order", {
+        filters: [
+            ["Purchase Order Item", "supplier_quotation", "=", frm.doc.name],
+            ["Purchase Order", "custom_purchase_type", "=", "Material"],
+            ["Purchase Order", "docstatus", "!=", 2],
+        ],
+        fields: ["name"],
+        limit: 1,
+    }).then((rows) => {
+        const material_po = rows && rows.length ? rows[0].name : null;
 
-    if (!material_po && !transporter_rows.length && !legacy_transporter_po) {
+        if (!material_po) {
+            render_po_link_cards(frm, null, []);
+            return;
+        }
+
+        // Fetch Transporter PO(s) live via their custom_material_po link,
+        // instead of trusting custom_transporters / the legacy reference
+        // field on this SQ (Transporter POs can be created directly against
+        // the Material PO, bypassing this SQ entirely).
+        frappe.db.get_list("Purchase Order", {
+            filters: {
+                custom_material_po: material_po,
+                custom_is_transporter_po: 1,
+                docstatus: ["!=", 2],
+            },
+            fields: ["name", "supplier"],
+        }).then((transporter_pos) => {
+            render_po_link_cards(frm, material_po, transporter_pos);
+        });
+    });
+}
+
+function render_po_link_cards(frm, material_po, transporter_pos) {
+    if (!material_po && !transporter_pos.length) {
         frm.set_df_property("custom_po_links_html", "options", "");
         return;
     }
@@ -114,19 +145,19 @@ function render_po_links(frm) {
         <style>
             .po-link-wrapper {
                 display: flex;
-                gap: 12px;
+                gap: 8px;
                 flex-wrap: wrap;
-                margin: 6px 0 14px;
+                margin: 4px 0 10px;
             }
             .po-link-card {
                 display: flex;
                 align-items: center;
-                gap: 12px;
-                flex: 1 1 260px;
-                min-width: 240px;
-                padding: 14px 16px;
+                gap: 8px;
+                flex: 1 1 200px;
+                min-width: 180px;
+                padding: 8px 10px;
                 border: 1px solid var(--border-color, #d1d8dd);
-                border-radius: 8px;
+                border-radius: 6px;
                 background: var(--card-bg, #fff);
                 text-decoration: none !important;
                 transition: box-shadow .15s ease, transform .15s ease;
@@ -140,28 +171,28 @@ function render_po_links(frm) {
                 border-style: dashed;
             }
             .po-link-icon {
-                width: 38px;
-                height: 38px;
-                min-width: 38px;
-                border-radius: 8px;
+                width: 26px;
+                height: 26px;
+                min-width: 26px;
+                border-radius: 6px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 16px;
+                font-size: 12px;
             }
             .po-link-body {
                 flex: 1;
                 min-width: 0;
             }
             .po-link-label {
-                font-size: 11px;
+                font-size: 10px;
                 text-transform: uppercase;
-                letter-spacing: .04em;
+                letter-spacing: .03em;
                 color: var(--text-muted, #8d99a6);
-                margin-bottom: 2px;
+                margin-bottom: 1px;
             }
             .po-link-value {
-                font-size: 14px;
+                font-size: 12.5px;
                 font-weight: 600;
                 color: var(--text-color, #1a1a1a);
                 overflow: hidden;
@@ -175,7 +206,7 @@ function render_po_links(frm) {
             }
             .po-link-arrow {
                 color: var(--text-muted, #c2c9cf);
-                font-size: 12px;
+                font-size: 11px;
             }
             .po-link-card:hover .po-link-arrow {
                 color: var(--text-color, #1a1a1a);
@@ -184,14 +215,14 @@ function render_po_links(frm) {
         <div class="po-link-wrapper">
             ${make_card("Material Purchase Order", material_po, "fa fa-cube", "#2e7d32")}
             ${
-                transporter_rows.length
-                    ? transporter_rows.map((row) => make_card(
-                        `Transporter PO (${row.transporter || "Row " + row.idx})`,
-                        row.transporter_po_reference,
+                transporter_pos.length
+                    ? transporter_pos.map((po) => make_card(
+                        `Transporter PO (${po.supplier})`,
+                        po.name,
                         "fa fa-truck",
                         "#1565c0"
                     )).join("")
-                    : make_card("Transporter Purchase Order", legacy_transporter_po, "fa fa-truck", "#1565c0")
+                    : make_card("Transporter Purchase Order", null, "fa fa-truck", "#1565c0")
             }
         </div>
     `;
