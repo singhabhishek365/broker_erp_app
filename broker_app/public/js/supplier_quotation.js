@@ -100,6 +100,8 @@ function render_po_links(frm) {
                 docstatus: ["!=", 2],
             },
             fields: ["name", "supplier"],
+            order_by: "creation asc",
+            limit: 100,
         }).then((transporter_pos) => {
             render_po_link_cards(frm, material_po, transporter_pos);
         });
