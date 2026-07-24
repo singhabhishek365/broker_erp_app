@@ -84,27 +84,27 @@ function render_po_links(frm) {
     }).then((rows) => {
         const material_po = rows && rows.length ? rows[0].name : null;
 
-        if (!material_po) {
-            render_po_link_cards(frm, null, []);
-            return;
-        }
+        // if (!material_po) {
+        //     render_po_link_cards(frm, null, []);
+        //     return;
+        // }
 
         // Fetch Transporter PO(s) live via their custom_material_po link,
         // instead of trusting custom_transporters / the legacy reference
         // field on this SQ (Transporter POs can be created directly against
         // the Material PO, bypassing this SQ entirely).
-        frappe.db.get_list("Purchase Order", {
-            filters: {
-                custom_material_po: material_po,
-                custom_is_transporter_po: 1,
-                docstatus: ["!=", 2],
-            },
-            fields: ["name", "supplier"],
-            order_by: "creation asc",
-            limit: 100,
-        }).then((transporter_pos) => {
-            render_po_link_cards(frm, material_po, transporter_pos);
-        });
+        // frappe.db.get_list("Purchase Order", {
+        //     filters: {
+        //         custom_material_po: material_po,
+        //         custom_is_transporter_po: 1,
+        //         docstatus: ["!=", 2],
+        //     },
+        //     fields: ["name", "supplier"],
+        //     order_by: "creation asc",
+        //     limit: 100,
+        // }).then((transporter_pos) => {
+        //     render_po_link_cards(frm, material_po, transporter_pos);
+        // });
     });
 }
 
