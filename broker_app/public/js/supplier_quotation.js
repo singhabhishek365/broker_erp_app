@@ -1,4 +1,10 @@
 frappe.ui.form.on("Supplier Quotation", {
+    refresh(frm) {
+        update_supplier_label(frm);
+    },
+    custom_is_broker_quotation(frm) {
+        update_supplier_label(frm);
+    },
 	onload(frm) {
 		frm.set_query("custom_party_name_", () => ({
 			filters: { custom_is_party: 1 },
@@ -232,3 +238,14 @@ function render_po_link_cards(frm, material_po, transporter_pos) {
     frm.set_df_property("custom_po_links_html", "options", html);
 }
 
+function update_supplier_label(frm) {
+    frm.set_df_property(
+        "supplier",
+        "label",
+        frm.doc.custom_is_broker_quotation
+            ? __("Broker")
+            : __("Supplier")
+    );
+
+    frm.refresh_field("supplier");
+}

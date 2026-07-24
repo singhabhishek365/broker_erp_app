@@ -80,6 +80,11 @@ def create_material_po(quotation):
         for item in po.items:
             item.schedule_date = nowdate()
             item.branch = quotation.branch
+            if item.material_request:
+                wip_composite_asset = frappe.db.get_value("Material Request Item",{"parent": item.material_request,"item_code": item.item_code},"wip_composite_asset")
+                if wip_composite_asset:
+                    item.wip_composite_asset = wip_composite_asset
+
 
         po.insert(ignore_permissions=True)
         # stays as draft — no submit()
