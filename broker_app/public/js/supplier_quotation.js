@@ -1,11 +1,96 @@
 frappe.ui.form.on("Supplier Quotation", {
     refresh(frm) {
         update_supplier_label(frm);
+        if (!frappe.user.has_role("System Manager")){
+            hide_items_grid_controls()
+        }
+        
+        if (
+            frm.is_new() &&
+            frm.doc.items &&
+            frm.doc.items.length > 0 &&
+            frm.doc.items[0].material_request
+        ) {
+            frappe.db.get_doc(
+                "Material Request",
+                frm.doc.items[0].material_request
+            ).then(mr => {
+                frm.set_value("department", mr.custom_department);
+                frm.set_value("cost_center", mr.custom_cost_center);
+                frm.set_value("branch", mr.custom_branch);
+            });
+        }
+
+        const grid = frm.fields_dict.items?.grid;
+		if (!grid) return;
+
+		grid.df.cannot_add_rows = 1;
+		grid.df.cannot_delete_rows = 1;
+        
+
+        setTimeout(() => {
+            // Remove standard Create menu items.
+            frm.remove_custom_button(__("Material Request"), __("Get Items From"));
+            frm.remove_custom_button(__("Request for Quotation"), __("Get Items From"));
+            frm.remove_custom_button(__("Link to Material Requests"),__("Tools"));
+        }, 400);
+
+        setTimeout(() => {
+			if (frm.doc.custom_po_created) {
+				frm.remove_custom_button(__("Purchase Order"), __("Create"));
+				frm.remove_custom_button(__("Quotation"), __("Create"));
+			}
+		}, 300);
+
+		// Show linked PO references as indicators for quick navigation
+		if (frm.doc.custom_material_purchase_order_reference_) {
+			frm.add_custom_button(__("Material PO"), () => {
+				frappe.set_route("Form", "Purchase Order", frm.doc.custom_material_purchase_order_reference_);
+			}, __("View"));
+		}
+
+		(frm.doc.custom_transporters || []).forEach((row) => {
+			if (!row.transporter_po_reference) return;
+			frm.add_custom_button(row.transporter_po_reference, () => {
+				frappe.set_route("Form", "Purchase Order", row.transporter_po_reference);
+			}, __("Transport PO"));
+		});
+
+		render_po_links(frm);
     },
     custom_is_broker_quotation(frm) {
         update_supplier_label(frm);
     },
+    cost_center(frm){
+        $.each(frm.doc.items, function (i, d) {
+			frappe.model.set_value(d.doctype, d.name,  "cost_center", frm.doc.cost_center);
+		})
+    },
+    branch(frm){
+        $.each(frm.doc.items, function (i, d) {
+			frappe.model.set_value(d.doctype, d.name,  "branch", frm.doc.branch);
+		})
+    },
+    department(frm){
+        $.each(frm.doc.items, function (i, d) {
+			frappe.model.set_value(d.doctype, d.name,  "department", frm.doc.department);
+		})
+    },
+    validate(frm){
+        frm.trigger("custom_rate_per_unit")
+    },
+    custom_rate_per_unit(frm) {
+        if (frm.doc.custom_rate_per_unit && frm.doc.custom_rate_per_unit <= 0) {
+            frappe.msgprint({
+                title: __("Invalid Rate"),
+                message: __("Rate Per Unit must be greater than 0."),
+                indicator: "red",
+            });
+            frm.set_value("custom_rate_per_unit", "");
+        }
+    },
 	onload(frm) {
+        update_supplier_label(frm);
 		frm.set_query("custom_party_name_", () => ({
 			filters: { custom_is_party: 1 },
 		}));
@@ -48,32 +133,7 @@ frappe.ui.form.on("Supplier Quotation", {
 				frm.remove_custom_button(__("Quotation"), __("Create"));
 			}
 		}, 300);
-	},
-
-	refresh(frm) {
-		setTimeout(() => {
-			if (frm.doc.custom_po_created) {
-				frm.remove_custom_button(__("Purchase Order"), __("Create"));
-				frm.remove_custom_button(__("Quotation"), __("Create"));
-			}
-		}, 300);
-
-		// Show linked PO references as indicators for quick navigation
-		if (frm.doc.custom_material_purchase_order_reference_) {
-			frm.add_custom_button(__("Material PO"), () => {
-				frappe.set_route("Form", "Purchase Order", frm.doc.custom_material_purchase_order_reference_);
-			}, __("View"));
-		}
-
-		(frm.doc.custom_transporters || []).forEach((row) => {
-			if (!row.transporter_po_reference) return;
-			frm.add_custom_button(row.transporter_po_reference, () => {
-				frappe.set_route("Form", "Purchase Order", row.transporter_po_reference);
-			}, __("Transport PO"));
-		});
-
-		render_po_links(frm);
-	},
+	}
 });
 
 function render_po_links(frm) {
@@ -248,4 +308,27 @@ function update_supplier_label(frm) {
     );
 
     frm.refresh_field("supplier");
+}
+
+function hide_items_grid_controls() {
+    if (document.getElementById("hide-items-grid-controls")) return;
+
+    const style = document.createElement("style");
+    style.id = "hide-items-grid-controls";
+
+    style.innerHTML = `
+        [data-fieldname="items"] .grid-heading-row > .col:not([data-fieldname]),
+        [data-fieldname="items"] .data-row > .col:not([data-fieldname]) {
+            display: none !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            max-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            overflow: hidden !important;
+        }
+    `;
+
+    document.head.appendChild(style);
 }

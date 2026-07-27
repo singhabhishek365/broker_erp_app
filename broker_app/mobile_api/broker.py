@@ -1,5 +1,6 @@
 import frappe
 import json
+from frappe import _
 
 
 @frappe.whitelist()
@@ -199,7 +200,7 @@ def create(**data):
        
         required_fields = [
             "supplier",
-            "custom_freight",
+            "incoterm",
             "items"
         ]
 
@@ -214,12 +215,18 @@ def create(**data):
         # CREATE DOCUMENT
         # -------------------------
         sq = frappe.new_doc("Supplier Quotation")
-        sq.supplier = data["supplier"]
+        sq.supplier = data.get("supplier")
         sq.transaction_date = data.get("transaction_date")
         sq.valid_till = data.get("valid_till")
+        incoterm = data.get("incoterm")
+        if incoterm not in (frappe.db.get_all("Incoterm",pluck="name")):
+            incoterm = frappe.db.get_value("Incoterm",{"title":incoterm},"name")
+        sq.incoterm = incoterm
+        sq.custom_party_name = data.get("party_name")
+        sq.custom_is_broker_quotation = 1
 
         # Custom fields
-        sq.custom_freight = data["custom_freight"]
+        # sq.custom_freight = data["custom_freight"]
         sq.custom_loading_charges = data["custom_loading_charges"]
         sq.custom_remarks = data.get("custom_remarks")
         sq.custom_distance_in_km_ = data.get("custom_distance_in_km_")
@@ -255,13 +262,12 @@ def create(**data):
             }
         }
 
-    except Exception:
+    except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Mobile SQ Create API")
         return {
             "success": False,
-            "message": "Failed to create Supplier Quotation"
+            "message": str(e)
         }
-
 
 
 @frappe.whitelist()
