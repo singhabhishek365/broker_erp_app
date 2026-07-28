@@ -409,3 +409,23 @@ def get_purchase_orders(filters=None, fields=None, start=0, page_length=20):
             "success": False,
             "message": str(e)
         }
+    
+import frappe
+
+@frappe.whitelist()
+def get_party_suppliers(start=0, limit=20):
+    suppliers = frappe.get_all(
+        "Supplier",
+        filters={"custom_is_party": 1},
+        fields=["name", "supplier_name"],
+        limit_start=start,
+        limit_page_length=limit
+    )
+
+    return [
+        {
+            "label": d.supplier_name or d.name,
+            "value": d.name
+        }
+        for d in suppliers
+    ]
