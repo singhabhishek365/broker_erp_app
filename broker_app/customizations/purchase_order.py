@@ -24,6 +24,14 @@ def create_material_po(quotation):
     try:
         frappe.logger("broker_po").info(f"Creating PO for SQ: {quotation.name}")
 
+        # Determined from the source quotation's own items (before mapping)
+        # since the "Services" item-group filter below needs it.
+        material_requests = {item.material_request for item in quotation.items if item.material_request}
+        is_professional_service = bool(material_requests) and frappe.db.exists(
+            "Material Request",
+            {"name": ["in", list(material_requests)], "custom_request_category": "Professional Service"},
+        )
+
         po = get_mapped_doc(
             "Supplier Quotation",
             quotation.name,
@@ -43,7 +51,11 @@ def create_material_po(quotation):
                         "name": "supplier_quotation_item",
                         "parent": "supplier_quotation",
                     },
-                    "condition": lambda item: item.item_group != "Services",
+                    # "Services" items are normally excluded here — they go
+                    # through the separate transport-PO path — except when
+                    # the quotation is Professional-Service-sourced, where
+                    # the service items themselves ARE the PO's content.
+                    "condition": lambda item: is_professional_service or item.item_group != "Services",
                 }
             }
         )
@@ -52,7 +64,12 @@ def create_material_po(quotation):
         po.transaction_date = nowdate()
         po.schedule_date = nowdate()
         po.validity_date = quotation.valid_till or nowdate()
-        po.custom_purchase_type = 'Material'
+
+        if is_professional_service:
+            po.custom_purchase_type = 'Service'
+            po.custom_service_subtype = 'Maintenance'
+        else:
+            po.custom_purchase_type = 'Material'
         # if quotation.custom_freight == "Exclusive":
         #     incoterm = frappe.db.get_value(
         #             "Incoterm",
@@ -91,8 +108,9 @@ def create_material_po(quotation):
 
         quotation.db_set("custom_material_purchase_order_reference_", po.name, update_modified=False)
 
+        po_label = "Service Purchase Order" if is_professional_service else "Material Purchase Order"
         frappe.logger("broker_po").info(f"PO Inserted (Draft): {po.name}")
-        frappe.msgprint(f"Material Purchase Order Created (Draft): <b>{po.name}</b>")
+        frappe.msgprint(f"{po_label} Created (Draft): <b>{po.name}</b>")
 
         return po
 

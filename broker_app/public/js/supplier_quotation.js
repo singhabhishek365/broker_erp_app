@@ -44,9 +44,13 @@ frappe.ui.form.on("Supplier Quotation", {
 
 		// Show linked PO references as indicators for quick navigation
 		if (frm.doc.custom_material_purchase_order_reference_) {
-			frm.add_custom_button(__("Material PO"), () => {
-				frappe.set_route("Form", "Purchase Order", frm.doc.custom_material_purchase_order_reference_);
-			}, __("View"));
+			const po_name = frm.doc.custom_material_purchase_order_reference_;
+			frappe.db.get_value("Purchase Order", po_name, "custom_purchase_type").then((r) => {
+				const label = r.message.custom_purchase_type === "Service" ? __("Service PO") : __("Material PO");
+				frm.add_custom_button(label, () => {
+					frappe.set_route("Form", "Purchase Order", po_name);
+				}, __("View"));
+			});
 		}
 
 		(frm.doc.custom_transporters || []).forEach((row) => {
