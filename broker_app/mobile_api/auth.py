@@ -1,6 +1,8 @@
 import frappe
 from frappe.auth import LoginManager
 
+from broker_app.mobile_api.helpers import get_linked_supplier
+
 @frappe.whitelist(allow_guest=True)
 def login(email, password):
 
@@ -25,6 +27,12 @@ def login(email, password):
 
         user.save(ignore_permissions=True)
 
+        # Supplier linked to this user (Broker == Supplier + Portal User)
+        supplier = get_linked_supplier(user.name)
+        supplier_name = (
+            frappe.db.get_value("Supplier", supplier, "supplier_name") if supplier else None
+        )
+
         return {
             "status": 200,
             "success": True,
@@ -33,7 +41,9 @@ def login(email, password):
                 "user": user.name,
                 "full_name": user.full_name,
                 "api_key": user.api_key,
-                "api_secret": api_secret
+                "api_secret": api_secret,
+                "supplier": supplier,
+                "supplier_name": supplier_name
             }
         }
 

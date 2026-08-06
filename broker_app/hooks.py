@@ -117,13 +117,19 @@ app_license = "mit"
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+# Brokers are Suppliers with a linked Portal User. These hooks restrict
+# Supplier Quotation / Purchase Order visibility to the caller's own linked
+# Supplier for such users; internal staff (System Manager/Administrator) and
+# any user without a linked Supplier are left to standard role permissions.
+permission_query_conditions = {
+	"Supplier Quotation": "broker_app.mobile_api.helpers.get_supplier_scoped_permission_query_conditions",
+	"Purchase Order": "broker_app.mobile_api.helpers.get_supplier_scoped_permission_query_conditions",
+}
+
+has_permission = {
+	"Supplier Quotation": "broker_app.mobile_api.helpers.has_supplier_scoped_permission",
+	"Purchase Order": "broker_app.mobile_api.helpers.has_supplier_scoped_permission",
+}
 
 # DocType Class
 # ---------------

@@ -2,6 +2,12 @@ import frappe
 import json
 from frappe import _
 
+from broker_app.mobile_api.helpers import (
+    get_linked_supplier,
+    get_linked_supplier_or_raise,
+    is_internal_user,
+)
+
 
 @frappe.whitelist()
 def create_broker(
@@ -108,8 +114,15 @@ def get_supplier_quotations(filters=None, fields=None, start=0, page_length=20):
         if isinstance(filters, str):
             filters = frappe.parse_json(filters)
 
+        filters = dict(filters or {})
+
         if isinstance(fields, str):
             fields = frappe.parse_json(fields)
+
+        # A broker may only ever see quotations for their own linked Supplier.
+        # Any client-supplied "supplier" filter is overridden, not trusted.
+        if not is_internal_user():
+            filters["supplier"] = get_linked_supplier_or_raise()
 
         # Parent fields ONLY
         parent_fields = [
@@ -196,11 +209,15 @@ def create(**data):
         # -------------------------
         # VALIDATIONS
         # -------------------------
-        
-       
+
+        # The Supplier is never taken from the client — it is always the
+        # Supplier linked to the logged-in broker, so a quotation can only
+        # ever be created under the caller's own identity.
+        supplier = get_linked_supplier_or_raise()
+
         required_fields = [
-            "supplier",
             "incoterm",
+            "valid_till",
             "items"
         ]
 
@@ -215,7 +232,7 @@ def create(**data):
         # CREATE DOCUMENT
         # -------------------------
         sq = frappe.new_doc("Supplier Quotation")
-        sq.supplier = data.get("supplier")
+        sq.supplier = supplier
         sq.transaction_date = data.get("transaction_date")
         sq.valid_till = data.get("valid_till")
         incoterm = data.get("incoterm")
@@ -227,8 +244,8 @@ def create(**data):
 
         # Custom fields
         # sq.custom_freight = data["custom_freight"]
-        sq.custom_loading_charges = data["custom_loading_charges"]
-        sq.custom_remarks = data.get("custom_remarks")
+        sq.custom_loading_charges = data.get("custom_loading_charges")
+        sq.custom_narration = data.get("custom_remarks")
         sq.custom_distance_in_km_ = data.get("custom_distance_in_km_")
         sq.custom_location = data.get("custom_location")
         sq.cost_center = data.get("cost_center")
@@ -293,8 +310,15 @@ def get_purchase_orders(filters=None, fields=None, start=0, page_length=20):
         if isinstance(filters, str):
             filters = frappe.parse_json(filters)
 
+        filters = dict(filters or {})
+
         if isinstance(fields, str):
             fields = frappe.parse_json(fields)
+
+        # A broker may only ever see purchase orders for their own linked
+        # Supplier. Any client-supplied "supplier" filter is overridden.
+        if not is_internal_user():
+            filters["supplier"] = get_linked_supplier_or_raise()
 
         # Define parent fields
         parent_fields = [
@@ -410,7 +434,7 @@ def get_purchase_orders(filters=None, fields=None, start=0, page_length=20):
             "message": str(e)
         }
     
-import frappe
+
 
 @frappe.whitelist()
 def get_party_suppliers(start=0, limit=20):
@@ -429,3 +453,96 @@ def get_party_suppliers(start=0, limit=20):
         }
         for d in suppliers
     ]
+
+
+@frappe.whitelist()
+def get_party_specific_items(party=None, start=0, page_length=20):
+    """
+    Fetch only the Items explicitly assigned to a Supplier via the
+    "Party Specific Item" doctype (Item / Item Group / Brand rules).
+
+    A broker always gets items assigned to their own linked Supplier —
+    "party" is ignored for them. Internal users (System Users) may pass
+    "party" explicitly to look up any Supplier's assigned items.
+    """
+    try:
+        if is_internal_user():
+            if not party:
+                frappe.throw(_("party is mandatory"))
+        else:
+            party = get_linked_supplier_or_raise()
+
+        start = int(start)
+        page_length = int(page_length)
+
+        rules = frappe.get_all(
+            "Party Specific Item",
+            filters={"party_type": "Supplier", "party": party},
+            fields=["restrict_based_on", "based_on_value"],
+        )
+
+        if not rules:
+            return {
+                "success": True,
+                "data": [],
+                "total_count": 0,
+                "page_length": page_length,
+                "start": start,
+                "message": _("No items are specifically assigned to this Supplier")
+            }
+
+        item_codes, item_groups, brands = set(), set(), set()
+        for rule in rules:
+            if rule.restrict_based_on == "Item":
+                item_codes.add(rule.based_on_value)
+            elif rule.restrict_based_on == "Item Group":
+                item_groups.add(rule.based_on_value)
+            elif rule.restrict_based_on == "Brand":
+                brands.add(rule.based_on_value)
+
+        or_filters = []
+        if item_codes:
+            or_filters.append(["name", "in", list(item_codes)])
+        if item_groups:
+            or_filters.append(["item_group", "in", list(item_groups)])
+        if brands:
+            or_filters.append(["brand", "in", list(brands)])
+
+        item_fields = [
+            "name", "item_code", "item_name", "item_group",
+            "brand", "stock_uom", "description", "image"
+        ]
+
+        items = frappe.get_list(
+            "Item",
+            filters={"disabled": 0},
+            or_filters=or_filters,
+            fields=item_fields,
+            start=start,
+            page_length=page_length,
+            order_by="item_name asc",
+        )
+
+        total_count = len(frappe.get_list(
+            "Item",
+            filters={"disabled": 0},
+            or_filters=or_filters,
+            fields=["name"],
+            limit_page_length=0,
+        ))
+
+        return {
+            "success": True,
+            "data": items,
+            "total_count": total_count,
+            "page_length": page_length,
+            "start": start,
+            "message": _("Party specific items fetched successfully")
+        }
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Get Party Specific Items Error")
+        return {
+            "success": False,
+            "message": str(e)
+        }
