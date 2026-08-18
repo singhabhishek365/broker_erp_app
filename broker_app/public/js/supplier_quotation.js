@@ -1,10 +1,11 @@
 frappe.ui.form.on("Supplier Quotation", {
     refresh(frm) {
         update_supplier_label(frm);
-        if (!frappe.user.has_role("System Manager")){
-            hide_items_grid_controls()
+
+        if (!frappe.user.has_role("System Manager")) {
+            toggle_item_code_editable(frm);
         }
-        
+
         if (
             frm.is_new() &&
             frm.doc.items &&
@@ -21,67 +22,56 @@ frappe.ui.form.on("Supplier Quotation", {
             });
         }
 
-        const grid = frm.fields_dict.items?.grid;
-		if (!grid) return;
-
-		grid.df.cannot_add_rows = 1;
-		grid.df.cannot_delete_rows = 1;
-        
-
         setTimeout(() => {
             // Remove standard Create menu items.
             frm.remove_custom_button(__("Material Request"), __("Get Items From"));
             frm.remove_custom_button(__("Request for Quotation"), __("Get Items From"));
-            frm.remove_custom_button(__("Link to Material Requests"),__("Tools"));
+            frm.remove_custom_button(__("Link to Material Requests"), __("Tools"));
         }, 400);
 
         setTimeout(() => {
-			if (frm.doc.custom_po_created) {
-				frm.remove_custom_button(__("Purchase Order"), __("Create"));
-				frm.remove_custom_button(__("Quotation"), __("Create"));
-			}
-		}, 300);
+            if (frm.doc.custom_po_created) {
+                frm.remove_custom_button(__("Purchase Order"), __("Create"));
+                frm.remove_custom_button(__("Quotation"), __("Create"));
+            }
+        }, 300);
 
-		// Show linked PO references as indicators for quick navigation
-		if (frm.doc.custom_material_purchase_order_reference_) {
-			const po_name = frm.doc.custom_material_purchase_order_reference_;
-			frappe.db.get_value("Purchase Order", po_name, "custom_purchase_type").then((r) => {
-				const label = r.message.custom_purchase_type === "Service" ? __("Service PO") : __("Material PO");
-				frm.add_custom_button(label, () => {
-					frappe.set_route("Form", "Purchase Order", po_name);
-				}, __("View"));
-			});
-		}
+        // Show linked PO references as indicators for quick navigation
+        if (frm.doc.custom_material_purchase_order_reference_) {
+            frm.add_custom_button(__("Material PO"), () => {
+                frappe.set_route("Form", "Purchase Order", frm.doc.custom_material_purchase_order_reference_);
+            }, __("View"));
+        }
 
-		(frm.doc.custom_transporters || []).forEach((row) => {
-			if (!row.transporter_po_reference) return;
-			frm.add_custom_button(row.transporter_po_reference, () => {
-				frappe.set_route("Form", "Purchase Order", row.transporter_po_reference);
-			}, __("Transport PO"));
-		});
+        (frm.doc.custom_transporters || []).forEach((row) => {
+            if (!row.transporter_po_reference) return;
+            frm.add_custom_button(row.transporter_po_reference, () => {
+                frappe.set_route("Form", "Purchase Order", row.transporter_po_reference);
+            }, __("Transport PO"));
+        });
 
-		render_po_links(frm);
+        render_po_links(frm);
     },
     custom_is_broker_quotation(frm) {
         update_supplier_label(frm);
     },
-    cost_center(frm){
+    cost_center(frm) {
         $.each(frm.doc.items, function (i, d) {
-			frappe.model.set_value(d.doctype, d.name,  "cost_center", frm.doc.cost_center);
-		})
+            frappe.model.set_value(d.doctype, d.name, "cost_center", frm.doc.cost_center);
+        });
     },
-    branch(frm){
+    branch(frm) {
         $.each(frm.doc.items, function (i, d) {
-			frappe.model.set_value(d.doctype, d.name,  "branch", frm.doc.branch);
-		})
+            frappe.model.set_value(d.doctype, d.name, "branch", frm.doc.branch);
+        });
     },
-    department(frm){
+    department(frm) {
         $.each(frm.doc.items, function (i, d) {
-			frappe.model.set_value(d.doctype, d.name,  "department", frm.doc.department);
-		})
+            frappe.model.set_value(d.doctype, d.name, "department", frm.doc.department);
+        });
     },
-    validate(frm){
-        frm.trigger("custom_rate_per_unit")
+    validate(frm) {
+        frm.trigger("custom_rate_per_unit");
     },
     custom_rate_per_unit(frm) {
         if (frm.doc.custom_rate_per_unit && frm.doc.custom_rate_per_unit <= 0) {
@@ -93,52 +83,87 @@ frappe.ui.form.on("Supplier Quotation", {
             frm.set_value("custom_rate_per_unit", "");
         }
     },
-	onload(frm) {
+    onload(frm) {
         update_supplier_label(frm);
-		frm.set_query("custom_party_name_", () => ({
-			filters: { custom_is_party: 1 },
-		}));
+        frm.set_query("custom_party_name_", () => ({
+            filters: { custom_is_party: 1 },
+        }));
 
-		frm.set_query("transporter", "custom_transporters", () => ({
-			filters: {
-				is_transporter: 1,
-			},
-		}));
+        frm.set_query("transporter", "custom_transporters", () => ({
+            filters: {
+                is_transporter: 1,
+            },
+        }));
 
-		frm.set_query("supplier", () => ({
-			filters: {
-				is_transporter: 0,
-				custom_is_party: 0,
-			},
-		}));
-	},
-
-	incoterm(frm) {
-		if (!frm.doc.incoterm) {
-			return;
-		}
-		frappe.db.get_value(
-			"Incoterm",
-			frm.doc.incoterm,
-			"custom_transporter_to_be_captured_from_master"
-		).then((r) => {
-			if (r.message.custom_transporter_to_be_captured_from_master) {
-				frm.set_value('custom_freight', 'Exclusive');
-			} else {
-				frm.set_value('custom_freight', 'Inclusive');
-			}
-		});
-	},
-
-	onload_post_render(frm){
-		setTimeout(() => {
-			if (frm.doc.custom_po_created) {
-				frm.remove_custom_button(__("Purchase Order"), __("Create"));
-				frm.remove_custom_button(__("Quotation"), __("Create"));
-			}
-		}, 300);
-	}
+        frm.set_query("supplier", () => ({
+            filters: {
+                is_transporter: 0,
+                custom_is_party: 0,
+            },
+        }));
+    },
+    incoterm(frm) {
+        if (!frm.doc.incoterm) {
+            return;
+        }
+        frappe.db.get_value(
+            "Incoterm",
+            frm.doc.incoterm,
+            "custom_transporter_to_be_captured_from_master"
+        ).then((r) => {
+            if (r.message.custom_transporter_to_be_captured_from_master) {
+                frm.set_value('custom_freight', 'Exclusive');
+            } else {
+                frm.set_value('custom_freight', 'Inclusive');
+            }
+        });
+    },
+    onload_post_render(frm) {
+        setTimeout(() => {
+            if (frm.doc.custom_po_created) {
+                frm.remove_custom_button(__("Purchase Order"), __("Create"));
+                frm.remove_custom_button(__("Quotation"), __("Create"));
+            }
+        }, 300);
+    }
 });
+
+frappe.ui.form.on("Supplier Quotation Item", {
+    items_add(frm) {
+        if (!frappe.user.has_role("System Manager")) toggle_item_code_editable(frm);
+    },
+    items_remove(frm) {
+        if (!frappe.user.has_role("System Manager")) toggle_item_code_editable(frm);
+    },
+});
+
+function toggle_item_code_editable(frm) {
+    const items_grid = frm.fields_dict["items"] && frm.fields_dict["items"].grid;
+    if (!items_grid) return;
+
+    const has_source_doc_field = (frm.doc.items || []).some(
+        (row) => row.material_request || row.request_for_quotation
+    );
+
+    if (has_source_doc_field) {
+        items_grid.update_docfield_property("item_code", "read_only", 1);
+        items_grid.cannot_add_rows = true;
+        items_grid.df.cannot_add_rows = 1;
+        items_grid.cannot_delete_rows = false;
+        items_grid.df.cannot_delete_rows = 0;
+    } else {
+        items_grid.update_docfield_property("item_code", "read_only", 0);
+        items_grid.cannot_add_rows = false;
+        items_grid.df.cannot_add_rows = 0;
+        items_grid.cannot_delete_rows = false;
+        items_grid.df.cannot_delete_rows = 0;
+    }
+
+    items_grid.refresh();
+    items_grid.grid_rows.forEach((row) => {
+        row.refresh_field("item_code");
+    });
+}
 
 function render_po_links(frm) {
     // Fetch the Material PO live from Purchase Order instead of trusting the
@@ -312,27 +337,4 @@ function update_supplier_label(frm) {
     );
 
     frm.refresh_field("supplier");
-}
-
-function hide_items_grid_controls() {
-    if (document.getElementById("hide-items-grid-controls")) return;
-
-    const style = document.createElement("style");
-    style.id = "hide-items-grid-controls";
-
-    style.innerHTML = `
-        [data-fieldname="items"] .grid-heading-row > .col:not([data-fieldname]),
-        [data-fieldname="items"] .data-row > .col:not([data-fieldname]) {
-            display: none !important;
-            width: 0 !important;
-            min-width: 0 !important;
-            max-width: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            border: none !important;
-            overflow: hidden !important;
-        }
-    `;
-
-    document.head.appendChild(style);
 }
