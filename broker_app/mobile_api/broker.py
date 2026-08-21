@@ -232,14 +232,14 @@ def create(**data):
         # CREATE DOCUMENT
         # -------------------------
         sq = frappe.new_doc("Supplier Quotation")
-        sq.supplier = supplier
+        sq.supplier = data.get("party_name") 
         sq.transaction_date = data.get("transaction_date")
         sq.valid_till = data.get("valid_till")
         incoterm = data.get("incoterm")
         if incoterm not in (frappe.db.get_all("Incoterm",pluck="name")):
             incoterm = frappe.db.get_value("Incoterm",{"title":incoterm},"name")
         sq.incoterm = incoterm
-        sq.custom_party_name = data.get("party_name")
+        sq.custom_party_name = supplier
         sq.custom_is_broker_quotation = 1
 
         # Custom fields
