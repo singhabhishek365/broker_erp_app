@@ -332,7 +332,7 @@ function update_supplier_label(frm) {
         "supplier",
         "label",
         frm.doc.custom_is_broker_quotation
-            ? __("Broker")
+            ? __("Party Name")
             : __("Supplier")
     );
 
